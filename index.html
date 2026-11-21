@@ -757,6 +757,390 @@
       tbody.innerHTML = "";
       rows.forEach(r => {
         const tr = document.createElement("tr");
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, setDoc, addDoc, deleteDoc,
+      onSnapshot, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbSRubl7ClC6oXF-kvOi9ZhINh6cGdeiY",
+      authDomain: "gokul-restaurant.firebaseapp.com",
+      projectId: "gokul-restaurant",
+      storageBucket: "gokul-restaurant.firebasestorage.app",
+      messagingSenderId: "851784083010",
+      appId: "1:851784083010:web:9e49569a375cd18494efdb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const CATEGORIES = {
+      "1": "૧. ચા-નાસ્તો / સ્ટાર્ટર",
+      "2": "૨. પંજાબી શાક",
+      "3": "૩. રોટલી / પરાઠા / નાન",
+      "4": "૪. દાળ / ભાત / પુલાવ",
+      "5": "૫. ચાઈનીઝ",
+      "6": "૬. પીણાં / મીઠાઈ / અન્ય"
+    };
+
+    const TABLES = [
+      { id: "T1", name: "ટેબલ ૧" },
+      { id: "T2", name: "ટેબલ ૨" },
+      { id: "T3", name: "ટેબલ ૩" },
+      { id: "T4", name: "ટેબલ ૪" },
+      { id: "T5", name: "ટેબલ ૫" },
+      { id: "T6", name: "ટેબલ ૬" },
+      { id: "T7", name: "ટેબલ ૭" },
+      { id: "T8", name: "ટેબલ ૮" },
+      { id: "PARCEL", name: "પાર્સલ" }
+    ];
+
+    let selectedTableId = "T1";
+    let menuItems = [];
+    let tableOrdersMap = {};
+    let expensesList = [];
+    let settledBills = [];
+    let unsubs = [];
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const expDateEl = document.getElementById("exp-date-input");
+    const monthFilterEl = document.getElementById("month-filter-input");
+    if (expDateEl) expDateEl.value = todayStr;
+    if (monthFilterEl) monthFilterEl.value = todayStr.slice(0, 7);
+
+    // Auth
+    document.getElementById("btn-login").addEventListener("click", async () => {
+      const email = document.getElementById("login-email").value.trim();
+      const pass = document.getElementById("login-password").value;
+      const errEl = document.getElementById("login-error");
+      errEl.textContent = "લોગીન થઈ રહ્યું છે...";
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        errEl.textContent = "";
+      } catch (e) {
+        errEl.textContent = "લોગીન થયું નથી. ઇમેલ અને પાસવર્ડ તપાસો.";
+      }
+    });
+
+    document.getElementById("btn-logout")?.addEventListener("click", () => signOut(auth));
+
+    onAuthStateChanged(auth, (user) => {
+      unsubs.forEach(u => u());
+      unsubs = [];
+      const loginScreen = document.getElementById("login-screen");
+      const appScreen = document.getElementById("app-screen");
+      if (user) {
+        if (loginScreen) loginScreen.style.display = "none";
+        if (appScreen) appScreen.style.display = "block";
+        startLiveListeners();
+      } else {
+        if (loginScreen) loginScreen.style.display = "flex";
+        if (appScreen) appScreen.style.display = "none";
+      }
+    });
+
+    // Tabs
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab)?.classList.add("active");
+        if (btn.dataset.tab === "monthly-tab") renderMonthly();
+      });
+    });
+
+    function startLiveListeners() {
+      unsubs.push(onSnapshot(collection(db, "menu"), (snap) => {
+        menuItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        menuItems.sort((a, b) => Number(a.cat || 99) - Number(b.cat || 99) || (a.name || "").localeCompare(b.name || ""));
+        renderMenuSelect();
+        renderMenuList();
+      }));
+
+      unsubs.push(onSnapshot(collection(db, "tableOrders"), (snap) => {
+        tableOrdersMap = {};
+        snap.docs.forEach(d => { tableOrdersMap[d.id] = d.data().items || []; });
+        renderTablesGrid();
+        renderCurrentTableOrders();
+      }));
+
+      unsubs.push(onSnapshot(query(collection(db, "expenses"), orderBy("date", "desc")), (snap) => {
+        expensesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderExpenses();
+        renderMonthly();
+      }));
+
+      unsubs.push(onSnapshot(query(collection(db, "paidBills"), orderBy("date", "desc")), (snap) => {
+        settledBills = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderMonthly();
+      }));
+    }
+
+    function renderTablesGrid() {
+      const grid = document.getElementById("tables-grid");
+      if (!grid) return;
+      grid.innerHTML = "";
+      TABLES.forEach(t => {
+        const items = tableOrdersMap[t.id] || [];
+        const total = items.reduce((sum, it) => sum + (Number(it.price) * Number(it.qty)), 0);
+        const pendingCount = items.filter(it => it.status !== "Served").length;
+        const div = document.createElement("div");
+        div.className = `table-card ${items.length ? "active-order" : ""} ${selectedTableId === t.id ? "selected" : ""}`;
+        div.innerHTML = `
+          <div class="table-title">${t.name}</div>
+          <div class="table-sub">${items.length ? `${items.length} આઇટમ (${pendingCount} Pending)` : "ખાલી"}</div>
+          <div class="table-amt">₹${total}</div>
+        `;
+        div.onclick = () => {
+          selectedTableId = t.id;
+          renderTablesGrid();
+          renderCurrentTableOrders();
+        };
+        grid.appendChild(div);
+      });
+    }
+
+    function renderMenuSelect() {
+      const sel = document.getElementById("order-item-select");
+      if (!sel) return;
+      const prevVal = sel.value;
+      sel.innerHTML = `<option value="">-- આઇટમ પસંદ કરો --</option>`;
+      menuItems.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = `${m.name} (H: ₹${m.halfPrice || 0} / F: ₹${m.fullPrice || 0})`;
+        sel.appendChild(opt);
+      });
+      if (prevVal) sel.value = prevVal;
+      syncPriceFromMenu();
+    }
+
+    function syncPriceFromMenu() {
+      const itemId = document.getElementById("order-item-select")?.value;
+      const type = document.getElementById("order-type-select")?.value;
+      const m = menuItems.find(x => x.id === itemId);
+      if (!m) return;
+      const priceInput = document.getElementById("order-price-input");
+      if (priceInput) priceInput.value = type === "half" ? (m.halfPrice || 0) : (m.fullPrice || 0);
+    }
+
+    document.getElementById("order-item-select")?.addEventListener("change", syncPriceFromMenu);
+    document.getElementById("order-type-select")?.addEventListener("change", syncPriceFromMenu);
+
+    document.getElementById("btn-add-order")?.addEventListener("click", async () => {
+      const itemId = document.getElementById("order-item-select").value;
+      const m = menuItems.find(x => x.id === itemId);
+      const itemName = m ? m.name : "";
+      if (!itemName) return alert("કૃપા કરીને મેનુમાંથી આઇટમ પસંદ કરો.");
+      const type = document.getElementById("order-type-select").value;
+      const price = Number(document.getElementById("order-price-input").value || 0);
+      const qty = Math.max(1, Number(document.getElementById("order-qty-input").value || 1));
+
+      const currentItems = [...(tableOrdersMap[selectedTableId] || [])];
+      currentItems.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+        name: itemName,
+        type,
+        price,
+        qty,
+        status: "Pending"
+      });
+      await setDoc(doc(db, "tableOrders", selectedTableId), { items: currentItems });
+      document.getElementById("order-qty-input").value = 1;
+    });
+
+    function renderCurrentTableOrders() {
+      const heading = document.getElementById("selected-table-heading");
+      const tbody = document.getElementById("order-items-tbody");
+      if (!heading || !tbody) return;
+      const tObj = TABLES.find(t => t.id === selectedTableId);
+      heading.textContent = `${tObj ? tObj.name : selectedTableId} - ઓર્ડર`;
+      const items = tableOrdersMap[selectedTableId] || [];
+      tbody.innerHTML = "";
+      let total = 0;
+
+      items.forEach((it, idx) => {
+        const lineTotal = Number(it.price) * Number(it.qty);
+        total += lineTotal;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.name}</td>
+          <td>${it.type === "half" ? "હાફ" : "ફુલ"}</td>
+          <td>₹${it.price}</td>
+          <td>${it.qty}</td>
+          <td>₹${lineTotal}</td>
+          <td><span class="${it.status === "Served" ? "badge-served" : "badge-pending"}">${it.status || "Pending"}</span></td>
+          <td class="actions">
+            <button class="btn-outline btn-sm" data-toggle="${idx}">${it.status === "Served" ? "Pending" : "Served"}</button>
+            <button class="btn-danger btn-sm" data-del="${idx}">હટાવો</button>
+          </td>
+        `;
+        tr.querySelector("[data-toggle]").onclick = async () => {
+          const updated = [...items];
+          updated[idx] = { ...updated[idx], status: updated[idx].status === "Served" ? "Pending" : "Served" };
+          await setDoc(doc(db, "tableOrders", selectedTableId), { items: updated });
+        };
+        tr.querySelector("[data-del]").onclick = async () => {
+          const updated = items.filter((_, i) => i !== idx);
+          await setDoc(doc(db, "tableOrders", selectedTableId), { items: updated });
+        };
+        tbody.appendChild(tr);
+      });
+
+      const totalEl = document.getElementById("table-total-amt");
+      if (totalEl) totalEl.textContent = total;
+    }
+
+    document.getElementById("btn-clear-table")?.addEventListener("click", async () => {
+      if (!confirm("શું તમે આ ટેબલનો વર્તમાન ઓર્ડર ખાલી કરવા માંગો છો?")) return;
+      await setDoc(doc(db, "tableOrders", selectedTableId), { items: [] });
+    });
+
+    document.getElementById("btn-pay-bill")?.addEventListener("click", async () => {
+      const items = tableOrdersMap[selectedTableId] || [];
+      if (!items.length) return alert("આ ટેબલમાં કોઈ ઓર્ડર નથી.");
+      const total = items.reduce((sum, it) => sum + (Number(it.price) * Number(it.qty)), 0);
+      const tObj = TABLES.find(t => t.id === selectedTableId);
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const dayName = now.toLocaleDateString("gu-IN", { weekday: "long" });
+
+      await addDoc(collection(db, "paidBills"), {
+        date: dateStr,
+        day: dayName,
+        tableName: tObj ? tObj.name : selectedTableId,
+        amount: total,
+        itemsCount: items.length,
+        createdAt: now.toISOString()
+      });
+      await setDoc(doc(db, "tableOrders", selectedTableId), { items: [] });
+      alert(`${tObj ? tObj.name : selectedTableId} નું ₹${total} બિલ Paid થઈ ગયું છે.`);
+    });
+
+    // Menu CRUD
+    document.getElementById("btn-add-menu")?.addEventListener("click", async () => {
+      const cat = document.getElementById("menu-cat-select").value;
+      const name = document.getElementById("menu-name-input").value.trim();
+      const halfPrice = Number(document.getElementById("menu-half-input").value || 0);
+      const fullPrice = Number(document.getElementById("menu-full-input").value || 0);
+      if (!name) return alert("આઇટમનું નામ લખો.");
+
+      await addDoc(collection(db, "menu"), { cat, name, halfPrice, fullPrice });
+      document.getElementById("menu-name-input").value = "";
+      document.getElementById("menu-half-input").value = "";
+      document.getElementById("menu-full-input").value = "";
+    });
+
+    function renderMenuList() {
+      const container = document.getElementById("menu-list-container");
+      if (!container) return;
+      container.innerHTML = "";
+      Object.keys(CATEGORIES).forEach(catKey => {
+        const itemsInCat = menuItems.filter(m => String(m.cat) === catKey);
+        if (!itemsInCat.length) return;
+        const h = document.createElement("div");
+        h.className = "cat-header";
+        h.textContent = CATEGORIES[catKey];
+        container.appendChild(h);
+
+        const tbl = document.createElement("table");
+        tbl.innerHTML = `<thead><tr><th>આઇટમ</th><th>હાફ ભાવ</th><th>ફુલ ભાવ</th><th>ક્રિયા</th></tr></thead><tbody></tbody>`;
+        const tb = tbl.querySelector("tbody");
+        itemsInCat.forEach(m => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${m.name}</td>
+            <td>₹${m.halfPrice || 0}</td>
+            <td>₹${m.fullPrice || 0}</td>
+            <td><button class="btn-danger btn-sm">ડિલીટ</button></td>
+          `;
+          tr.querySelector("button").onclick = async () => {
+            if (confirm(`"${m.name}" મેનુમાંથી દૂર કરવી છે?`)) {
+              await deleteDoc(doc(db, "menu", m.id));
+            }
+          };
+          tb.appendChild(tr);
+        });
+        container.appendChild(tbl);
+      });
+    }
+
+    // Expenses
+    document.getElementById("btn-add-expense")?.addEventListener("click", async () => {
+      const date = document.getElementById("exp-date-input").value || todayStr;
+      const title = document.getElementById("exp-title-input").value.trim();
+      const amount = Number(document.getElementById("exp-amt-input").value || 0);
+      if (!title || amount <= 0) return alert("ખર્ચની વિગત અને સાચી રકમ લખો.");
+
+      const day = new Date(date + "T00:00:00").toLocaleDateString("gu-IN", { weekday: "long" });
+      await addDoc(collection(db, "expenses"), { date, day, title, amount });
+      document.getElementById("exp-title-input").value = "";
+      document.getElementById("exp-amt-input").value = "";
+    });
+
+    function renderExpenses() {
+      const tbody = document.getElementById("expense-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      expensesList.forEach(exp => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${exp.date}</td>
+          <td>${exp.title}</td>
+          <td>₹${exp.amount}</td>
+          <td><button class="btn-danger btn-sm">ડિલીટ</button></td>
+        `;
+        tr.querySelector("button").onclick = async () => {
+          if (confirm("આ ખર્ચની નોંધ કાઢી નાખવી છે?")) {
+            await deleteDoc(doc(db, "expenses", exp.id));
+          }
+        };
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Monthly & CSV
+    function getFilteredMonthRows() {
+      const ym = document.getElementById("month-filter-input")?.value || todayStr.slice(0, 7);
+      const rows = [];
+      let income = 0;
+      let expense = 0;
+
+      settledBills.filter(b => (b.date || "").startsWith(ym)).forEach(b => {
+        const amt = Number(b.amount || 0);
+        income += amt;
+        rows.push({ date: b.date, day: b.day || "", type: "આવક (Paid)", detail: b.tableName, amount: amt });
+      });
+
+      expensesList.filter(e => (e.date || "").startsWith(ym)).forEach(e => {
+        const amt = Number(e.amount || 0);
+        expense += amt;
+        rows.push({ date: e.date, day: e.day || "", type: "ખર્ચ", detail: e.title, amount: -amt });
+      });
+
+      rows.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      return { rows, income, expense, net: income - expense };
+    }
+
+    function renderMonthly() {
+      const { rows, income, expense, net } = getFilteredMonthRows();
+      const incEl = document.getElementById("month-income");
+      const expEl = document.getElementById("month-expense");
+      const netEl = document.getElementById("month-net");
+      const tbody = document.getElementById("monthly-tbody");
+      if (incEl) incEl.textContent = income;
+      if (expEl) expEl.textContent = expense;
+      if (netEl) netEl.textContent = net;
+      if (!tbody) return;
+
+      tbody.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${r.date}</td>
           <td>${r.day}</td>
@@ -768,17 +1152,16 @@
       });
     }
 
-    document.getElementById("month-filter-input").addEventListener("change", renderMonthly);
+    document.getElementById("month-filter-input")?.addEventListener("change", renderMonthly);
 
-    document.getElementById("btn-export-csv").addEventListener("click", () => {
-      const ym = document.getElementById("month-filter-input").value || todayStr.slice(0, 7);
+    document.getElementById("btn-export-csv")?.addEventListener("click", () => {
+      const ym = document.getElementById("month-filter-input")?.value || todayStr.slice(0, 7);
       const { rows } = getFilteredMonthRows();
       const csvLines = ["Date,Day,Type,Detail,Amount"];
       rows.forEach(r => {
         csvLines.push(`"${r.date}","${r.day}","${r.type}","${String(r.detail).replace(/"/g, '""')}",${r.amount}`);
       });
-      const blob = new Blob(["﻿" + csvLines.join("
-")], { type: "text/csv;charset=utf-8;" });
+      const blob = new Blob(["\uFEFF" + csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
