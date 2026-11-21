@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ગોકુલ રેસ્ટોરન્ટ - લાઇવ વેબ પોર્ટલ</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --primary: #1b5e20;
+      --primary-light: #e8f5e9;
+      --accent: #ef6c00;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --danger: #c62828;
+      --success: #2e7d32;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, "Noto Sans Gujarati", sans-serif; }
+    body { background: var(--bg); color: var(--text); padding-bottom: 40px; }
+
+    /* Login Screen */
+    #login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .login-box {
+      background: var(--card);
+      width: 100%;
+      max-width: 380px;
+      padding: 24px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+    }
+    .login-box h2 { color: var(--primary); margin-bottom: 6px; font-size: 1.35rem; }
+    .login-box p { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; }
+    .field input, .field select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-outline { background: #fff; border: 1px solid #cbd5e1; color: var(--text); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 6px 10px; font-size: 0.82rem; }
+    .error-msg { color: var(--danger); font-size: 0.85rem; margin-top: 8px; min-height: 18px; }
+
+    /* Main App */
+    #app-screen { display: none; }
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand { font-size: 1.1rem; font-weight: 700; }
+    .sync-badge {
+      background: rgba(255,255,255,0.18);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 10px 16px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: #f1f5f9;
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      white-space: nowrap;
+      font-size: 0.88rem;
+    }
+    .tab-btn.active { background: var(--primary); color: #fff; }
+
+    .container { max-width: 1100px; margin: 14px auto; padding: 0 14px; }
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* Tables Grid */
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .table-card {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      transition: 0.15s;
+    }
+    .table-card.active-order { border-color: var(--accent); background: #fff8f1; }
+    .table-card.selected { box-shadow: 0 0 0 3px rgba(27,94,32,0.22); border-color: var(--primary); }
+    .table-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+    .table-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 8px; }
+    .table-amt { font-weight: 700; color: var(--primary); font-size: 1rem; }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .panel h3 { font-size: 1rem; margin-bottom: 12px; color: var(--primary); }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .row > * { flex: 1 1 150px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 6px; text-align: left; }
+    th { background: #f8fafc; font-weight: 700; }
+    .badge-served { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+    .badge-pending { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .summary-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px dashed var(--border);
+      font-weight: 700;
+    }
+    .cat-header {
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h2>ગોકુલ રેસ્ટોરન્ટ</h2>
+      <p>તમારા ઇમેલ અને પાસવર્ડથી લોગીન કરો (લાઇવ ક્લાઉડ સિંક)</p>
+      <div class="field">
+        <label for="login-email">ઇમેલ આઇડી</label>
+        <input type="email" id="login-email" placeholder="example@gmail.com" autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="login-password">પાસવર્ડ</label>
+        <input type="password" id="login-password" placeholder="પાસવર્ડ દાખલ કરો" autocomplete="current-password" />
+      </div>
+      <button class="btn-primary" id="btn-login">લોગીન કરો</button>
+      <div class="error-msg" id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- MAIN PORTAL -->
+  <div id="app-screen">
+    <header>
+      <div class="brand">ગોકુલ રેસ્ટોરન્ટ પોર્ટલ</div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span class="sync-badge" id="sync-status">લાઇવ કનેક્ટેડ</span>
+        <button class="btn-outline btn-sm" id="btn-logout">લોગઆઉટ</button>
+      </div>
+    </header>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" data-tab="tables-tab">ટેબલ અને ઓર્ડર</button>
+      <button class="tab-btn" data-tab="menu-tab">મેનુ (હાફ/ફુલ ભાવ)</button>
+      <button class="tab-btn" data-tab="expense-tab">દૈનિક ખર્ચ</button>
+      <button class="tab-btn" data-tab="monthly-tab">માસિક હિસાબ અને CSV</button>
+    </div>
+
+    <div class="container">
+      <!-- 1. TABLES & ORDERS -->
+      <div id="tables-tab" class="section active">
+        <div class="tables-grid" id="tables-grid"></div>
+
+        <div class="panel">
+          <h3 id="selected-table-heading">ટેબલ ૧ - ઓર્ડર</h3>
+          <div class="row">
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">મેનુ આઇટમ</span>
+                <select id="order-item-select"></select>
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">પ્રકાર</span>
+                <select id="order-type-select">
+                  <option value="full">ફુલ (Full)</option>
+                  <option value="half">હાફ (Half)</option>
+                </select>
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">ભાવ (₹ - મેન્યુઅલ બદલી શકાય)</span>
+                <input type="number" id="order-price-input" min="0" step="1" />
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">નંગ (Qty)</span>
+                <input type="number" id="order-qty-input" value="1" min="1" step="1" />
+              </label>
+            </div>
+            <div>
+              <button class="btn-accent" id="btn-add-order" style="width:100%;">ઓર્ડર ઉમેરો</button>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>આઇટમ</th>
+                <th>હાફ/ફુલ</th>
+                <th>ભાવ</th>
+                <th>નંગ</th>
+                <th>કુલ</th>
+                <th>સ્થિતિ</th>
+                <th>ક્રિયા</th>
+              </tr>
+            </thead>
+            <tbody id="order-items-tbody"></tbody>
+          </table>
+
+          <div class="summary-bar">
+            <div>કુલ બિલ: ₹<span id="table-total-amt">0</span></div>
+            <div class="actions">
+              <button class="btn-outline btn-sm" id="btn-clear-table">ટેબલ ખાલી કરો</button>
+              <button class="btn-primary btn-sm" id="btn-pay-bill">Paid (બિલ સેટલ કરો)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. MENU (6 CATEGORIES, HALF/FULL MANUAL PRICE) -->
+      <div id="menu-tab" class="section">
+        <div class="panel">
+          <h3>નવી મેનુ આઇટમ ઉમેરો</h3>
+          <div class="row">
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">કેટેગરી (૧ થી ૬ ક્રમ)</span>
+                <select id="menu-cat-select">
+                  <option value="1">૧. ચા-નાસ્તો / સ્ટાર્ટર</option>
+                  <option value="2">૨. પંજાબી શાક</option>
+                  <option value="3">૩. રોટલી / પરાઠા / નાન</option>
+                  <option value="4">૪. દાળ / ભાત / પુલાવ</option>
+                  <option value="5">૫. ચાઈનીઝ</option>
+                  <option value="6">૬. પીણાં / મીઠાઈ / અન્ય</option>
+                </select>
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">આઇટમનું નામ</span>
+                <input type="text" id="menu-name-input" placeholder="દા.ત. પનીર ટિક્કા" />
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">હાફ ભાવ (₹)</span>
+                <input type="number" id="menu-half-input" placeholder="0" min="0" />
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">ફુલ ભાવ (₹)</span>
+                <input type="number" id="menu-full-input" placeholder="0" min="0" />
+              </label>
+            </div>
+            <div>
+              <button class="btn-primary" id="btn-add-menu" style="width:100%;">મેનુમાં સાચવો</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>મેનુ યાદી (કેટેગરી ક્રમ મુજબ)</h3>
+          <div id="menu-list-container"></div>
+        </div>
+      </div>
+
+      <!-- 3. DAILY EXPENSE -->
+      <div id="expense-tab" class="section">
+        <div class="panel">
+          <h3>દૈનિક ખર્ચ નોંધ</h3>
+          <div class="row">
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">તારીખ</span>
+                <input type="date" id="exp-date-input" />
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">ખર્ચની વિગત</span>
+                <input type="text" id="exp-title-input" placeholder="દા.ત. શાકભાજી, દૂધ, ગેસ" />
+              </label>
+            </div>
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">રકમ (₹)</span>
+                <input type="number" id="exp-amt-input" min="0" placeholder="0" />
+              </label>
+            </div>
+            <div>
+              <button class="btn-accent" id="btn-add-expense" style="width:100%;">ખર્ચ ઉમેરો</button>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>તારીખ</th>
+                <th>વિગત</th>
+                <th>રકમ (₹)</th>
+                <th>ક્રિયા</th>
+              </tr>
+            </thead>
+            <tbody id="expense-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 4. MONTHLY SUMMARY & CSV -->
+      <div id="monthly-tab" class="section">
+        <div class="panel">
+          <h3>માસિક હિસાબ (Paid આવક અને ખર્ચ)</h3>
+          <div class="row" style="margin-bottom:12px;">
+            <div>
+              <label class="field"><span style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px;">મહિનો પસંદ કરો</span>
+                <input type="month" id="month-filter-input" />
+              </label>
+            </div>
+            <div style="display:flex; gap:8px; align-items:end;">
+              <button class="btn-primary" id="btn-export-csv">CSV ડાઉનલોડ કરો</button>
+            </div>
+          </div>
+
+          <div class="summary-bar" style="margin-top:0; border-top:none; padding-top:0; margin-bottom:12px;">
+            <div>કુલ Paid આવક: ₹<span id="month-income">0</span></div>
+            <div>કુલ ખર્ચ: ₹<span id="month-expense">0</span></div>
+            <div>ચોખ્ખો હિસાબ: ₹<span id="month-net">0</span></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>તારીખ</th>
+                <th>વાર</th>
+                <th>પ્રકાર</th>
+                <th>વિગત / ટેબલ</th>
+                <th>રકમ (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="monthly-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, setDoc, addDoc, deleteDoc, updateDoc,
+      onSnapshot, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbSRubl7ClC6oXF-kvOi9ZhINh6cGdeiY",
+      authDomain: "gokul-restaurant.firebaseapp.com",
+      projectId: "gokul-restaurant",
+      storageBucket: "gokul-restaurant.firebasestorage.app",
+      messagingSenderId: "851784083010",
+      appId: "1:851784083010:web:9e49569a375cd18494efdb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const CATEGORIES = {
+      "1": "૧. ચા-નાસ્તો / સ્ટાર્ટર",
+      "2": "૨. પંજાબી શાક",
+      "3": "૩. રોટલી / પરાઠા / નાન",
+      "4": "૪. દાળ / ભાત / પુલાવ",
+      "5": "૫. ચાઈનીઝ",
+      "6": "૬. પીણાં / મીઠાઈ / અન્ય"
+    };
+
+    const TABLES = [
+      { id: "T1", name: "ટેબલ ૧" },
+      { id: "T2", name: "ટેબલ ૨" },
+      { id: "T3", name: "ટેબલ ૩" },
+      { id: "T4", name: "ટેબલ ૪" },
+      { id: "T5", name: "ટેબલ ૫" },
+      { id: "T6", name: "ટેબલ ૬" },
+      { id: "T7", name: "ટેબલ ૭" },
+      { id: "T8", name: "ટેબલ ૮" },
+      { id: "PARCEL", name: "પાર્સલ" }
+    ];
+
+    let selectedTableId = "T1";
+    let menuItems = [];
+    let tableOrdersMap = {};
+    let expensesList = [];
+    let settledBills = [];
+    let unsubs = [];
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    document.getElementById("exp-date-input").value = todayStr;
+    document.getElementById("month-filter-input").value = todayStr.slice(0, 7);
+
+    // Auth
+    document.getElementById("btn-login").addEventListener("click", async () => {
+      const email = document.getElementById("login-email").value.trim();
+      const pass = document.getElementById("login-password").value;
+      const errEl = document.getElementById("login-error");
+      errEl.textContent = "";
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (e) {
+        errEl.textContent = "લોગીન થયું નથી. ઇમેલ અને પાસવર્ડ તપાસો.";
+      }
+    });
+
+    document.getElementById("btn-logout").addEventListener("click", () => signOut(auth));
+
+    onAuthStateChanged(auth, (user) => {
+      unsubs.forEach(u => u());
+      unsubs = [];
+      if (user) {
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("app-screen").style.display = "block";
+        startLiveListeners();
+      } else {
+        document.getElementById("login-screen").style.display = "flex";
+        document.getElementById("app-screen").style.display = "none";
+      }
+    });
+
+    // Tabs
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+        if (btn.dataset.tab === "monthly-tab") renderMonthly();
+      });
+    });
+
+    function startLiveListeners() {
+      // Menu
+      unsubs.push(onSnapshot(collection(db, "menu"), (snap) => {
+        menuItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        menuItems.sort((a, b) => Number(a.cat || 99) - Number(b.cat || 99) || (a.name || "").localeCompare(b.name || ""));
+        renderMenuSelect();
+        renderMenuList();
+      }));
+
+      // Active Table Orders
+      unsubs.push(onSnapshot(collection(db, "tableOrders"), (snap) => {
+        tableOrdersMap = {};
+        snap.docs.forEach(d => { tableOrdersMap[d.id] = d.data().items || []; });
+        renderTablesGrid();
+        renderCurrentTableOrders();
+      }));
+
+      // Expenses
+      unsubs.push(onSnapshot(query(collection(db, "expenses"), orderBy("date", "desc")), (snap) => {
+        expensesList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderExpenses();
+        renderMonthly();
+      }));
+
+      // Paid Bills
+      unsubs.push(onSnapshot(query(collection(db, "paidBills"), orderBy("date", "desc")), (snap) => {
+        settledBills = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderMonthly();
+      }));
+    }
+
+    function renderTablesGrid() {
+      const grid = document.getElementById("tables-grid");
+      grid.innerHTML = "";
+      TABLES.forEach(t => {
+        const items = tableOrdersMap[t.id] || [];
+        const total = items.reduce((sum, it) => sum + (Number(it.price) * Number(it.qty)), 0);
+        const pendingCount = items.filter(it => it.status !== "Served").length;
+        const div = document.createElement("div");
+        div.className = `table-card ${items.length ? "active-order" : ""} ${selectedTableId === t.id ? "selected" : ""}`;
+        div.innerHTML = `
+          <div class="table-title">${t.name}</div>
+          <div class="table-sub">${items.length ? `${items.length} આઇટમ (${pendingCount} Pending)` : "ખાલી"}</div>
+          <div class="table-amt">₹${total}</div>
+        `;
+        div.onclick = () => {
+          selectedTableId = t.id;
+          renderTablesGrid();
+          renderCurrentTableOrders();
+        };
+        grid.appendChild(div);
+      });
+    }
+
+    function renderMenuSelect() {
+      const sel = document.getElementById("order-item-select");
+      const prevVal = sel.value;
+      sel.innerHTML = `<option value="">-- આઇટમ પસંદ કરો --</option>`;
+      menuItems.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = `${m.name} (H: ₹${m.halfPrice || 0} / F: ₹${m.fullPrice || 0})`;
+        sel.appendChild(opt);
+      });
+      if (prevVal) sel.value = prevVal;
+      syncPriceFromMenu();
+    }
+
+    function syncPriceFromMenu() {
+      const itemId = document.getElementById("order-item-select").value;
+      const type = document.getElementById("order-type-select").value;
+      const m = menuItems.find(x => x.id === itemId);
+      if (!m) return;
+      document.getElementById("order-price-input").value = type === "half" ? (m.halfPrice || 0) : (m.fullPrice || 0);
+    }
+
+    document.getElementById("order-item-select").addEventListener("change", syncPriceFromMenu);
+    document.getElementById("order-type-select").addEventListener("change", syncPriceFromMenu);
+
+    document.getElementById("btn-add-order").addEventListener("click", async () => {
+      const itemId = document.getElementById("order-item-select").value;
+      const m = menuItems.find(x => x.id === itemId);
+      const itemName = m ? m.name : "";
+      if (!itemName) return alert("કૃપા કરીને મેનુમાંથી આઇટમ પસંદ કરો.");
+      const type = document.getElementById("order-type-select").value;
+      const price = Number(document.getElementById("order-price-input").value || 0);
+      const qty = Math.max(1, Number(document.getElementById("order-qty-input").value || 1));
+
+      const currentItems = [...(tableOrdersMap[selectedTableId] || [])];
+      currentItems.push({
+        id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+        name: itemName,
+        type,
+        price,
+        qty,
+        status: "Pending"
+      });
+      await setDoc(doc(db, "tableOrders", selectedTableId), { items: currentItems });
+      document.getElementById("order-qty-input").value = 1;
+    });
+
+    function renderCurrentTableOrders() {
+      const tObj = TABLES.find(t => t.id === selectedTableId);
+      document.getElementById("selected-table-heading").textContent = `${tObj ? tObj.name : selectedTableId} - ઓર્ડર`;
+      const items = tableOrdersMap[selectedTableId] || [];
+      const tbody = document.getElementById("order-items-tbody");
+      tbody.innerHTML = "";
+      let total = 0;
+
+      items.forEach((it, idx) => {
+        const lineTotal = Number(it.price) * Number(it.qty);
+        total += lineTotal;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.name}</td>
+          <td>${it.type === "half" ? "હાફ" : "ફુલ"}</td>
+          <td>₹${it.price}</td>
+          <td>${it.qty}</td>
+          <td>₹${lineTotal}</td>
+          <td><span class="${it.status === "Served" ? "badge-served" : "badge-pending"}">${it.status || "Pending"}</span></td>
+          <td class="actions">
+            <button class="btn-outline btn-sm" data-toggle="${idx}">${it.status === "Served" ? "Pending" : "Served"}</button>
+            <button class="btn-danger btn-sm" data-del="${idx}">હટાવો</button>
+          </td>
+        `;
+        tr.querySelector("[data-toggle]").onclick = async () => {
+          const updated = [...items];
+          updated[idx] = { ...updated[idx], status: updated[idx].status === "Served" ? "Pending" : "Served" };
+          await setDoc(doc(db, "tableOrders", selectedTableId), { items: updated });
+        };
+        tr.querySelector("[data-del]").onclick = async () => {
+          const updated = items.filter((_, i) => i !== idx);
+          await setDoc(doc(db, "tableOrders", selectedTableId), { items: updated });
+        };
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("table-total-amt").textContent = total;
+    }
+
+    document.getElementById("btn-clear-table").addEventListener("click", async () => {
+      if (!confirm("શું તમે આ ટેબલનો વર્તમાન ઓર્ડર ખાલી કરવા માંગો છો?")) return;
+      await setDoc(doc(db, "tableOrders", selectedTableId), { items: [] });
+    });
+
+    document.getElementById("btn-pay-bill").addEventListener("click", async () => {
+      const items = tableOrdersMap[selectedTableId] || [];
+      if (!items.length) return alert("આ ટેબલમાં કોઈ ઓર્ડર નથી.");
+      const total = items.reduce((sum, it) => sum + (Number(it.price) * Number(it.qty)), 0);
+      const tObj = TABLES.find(t => t.id === selectedTableId);
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const dayName = now.toLocaleDateString("gu-IN", { weekday: "long" });
+
+      await addDoc(collection(db, "paidBills"), {
+        date: dateStr,
+        day: dayName,
+        tableName: tObj ? tObj.name : selectedTableId,
+        amount: total,
+        itemsCount: items.length,
+        createdAt: now.toISOString()
+      });
+      await setDoc(doc(db, "tableOrders", selectedTableId), { items: [] });
+      alert(`${tObj ? tObj.name : selectedTableId} નું ₹${total} બિલ Paid થઈ ગયું છે.`);
+    });
+
+    // Menu CRUD
+    document.getElementById("btn-add-menu").addEventListener("click", async () => {
+      const cat = document.getElementById("menu-cat-select").value;
+      const name = document.getElementById("menu-name-input").value.trim();
+      const halfPrice = Number(document.getElementById("menu-half-input").value || 0);
+      const fullPrice = Number(document.getElementById("menu-full-input").value || 0);
+      if (!name) return alert("આઇટમનું નામ લખો.");
+
+      await addDoc(collection(db, "menu"), { cat, name, halfPrice, fullPrice });
+      document.getElementById("menu-name-input").value = "";
+      document.getElementById("menu-half-input").value = "";
+      document.getElementById("menu-full-input").value = "";
+    });
+
+    function renderMenuList() {
+      const container = document.getElementById("menu-list-container");
+      container.innerHTML = "";
+      Object.keys(CATEGORIES).forEach(catKey => {
+        const itemsInCat = menuItems.filter(m => String(m.cat) === catKey);
+        if (!itemsInCat.length) return;
+        const h = document.createElement("div");
+        h.className = "cat-header";
+        h.textContent = CATEGORIES[catKey];
+        container.appendChild(h);
+
+        const tbl = document.createElement("table");
+        tbl.innerHTML = `<thead><tr><th>આઇટમ</th><th>હાફ ભાવ</th><th>ફુલ ભાવ</th><th>ક્રિયા</th></tr></thead><tbody></tbody>`;
+        const tb = tbl.querySelector("tbody");
+        itemsInCat.forEach(m => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${m.name}</td>
+            <td>₹${m.halfPrice || 0}</td>
+            <td>₹${m.fullPrice || 0}</td>
+            <td><button class="btn-danger btn-sm">ડિલીટ</button></td>
+          `;
+          tr.querySelector("button").onclick = async () => {
+            if (confirm(`"${m.name}" મેનુમાંથી દૂર કરવી છે?`)) {
+              await deleteDoc(doc(db, "menu", m.id));
+            }
+          };
+          tb.appendChild(tr);
+        });
+        container.appendChild(tbl);
+      });
+    }
+
+    // Expenses
+    document.getElementById("btn-add-expense").addEventListener("click", async () => {
+      const date = document.getElementById("exp-date-input").value || todayStr;
+      const title = document.getElementById("exp-title-input").value.trim();
+      const amount = Number(document.getElementById("exp-amt-input").value || 0);
+      if (!title || amount <= 0) return alert("ખર્ચની વિગત અને સાચી રકમ લખો.");
+
+      const day = new Date(date + "T00:00:00").toLocaleDateString("gu-IN", { weekday: "long" });
+      await addDoc(collection(db, "expenses"), { date, day, title, amount });
+      document.getElementById("exp-title-input").value = "";
+      document.getElementById("exp-amt-input").value = "";
+    });
+
+    function renderExpenses() {
+      const tbody = document.getElementById("expense-tbody");
+      tbody.innerHTML = "";
+      expensesList.forEach(exp => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${exp.date}</td>
+          <td>${exp.title}</td>
+          <td>₹${exp.amount}</td>
+          <td><button class="btn-danger btn-sm">ડિલીટ</button></td>
+        `;
+        tr.querySelector("button").onclick = async () => {
+          if (confirm("આ ખર્ચની નોંધ કાઢી નાખવી છે?")) {
+            await deleteDoc(doc(db, "expenses", exp.id));
+          }
+        };
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Monthly & CSV
+    function getFilteredMonthRows() {
+      const ym = document.getElementById("month-filter-input").value;
+      const rows = [];
+      let income = 0;
+      let expense = 0;
+
+      settledBills.filter(b => (b.date || "").startsWith(ym)).forEach(b => {
+        const amt = Number(b.amount || 0);
+        income += amt;
+        rows.push({ date: b.date, day: b.day || "", type: "આવક (Paid)", detail: b.tableName, amount: amt });
+      });
+
+      expensesList.filter(e => (e.date || "").startsWith(ym)).forEach(e => {
+        const amt = Number(e.amount || 0);
+        expense += amt;
+        rows.push({ date: e.date, day: e.day || "", type: "ખર્ચ", detail: e.title, amount: -amt });
+      });
+
+      rows.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      return { rows, income, expense, net: income - expense };
+    }
+
+    function renderMonthly() {
+      const { rows, income, expense, net } = getFilteredMonthRows();
+      document.getElementById("month-income").textContent = income;
+      document.getElementById("month-expense").textContent = expense;
+      document.getElementById("month-net").textContent = net;
+
+      const tbody = document.getElementById("monthly-tbody");
+      tbody.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.date}</td>
+          <td>${r.day}</td>
+          <td>${r.type}</td>
+          <td>${r.detail}</td>
+          <td>${r.amount >= 0 ? `₹${r.amount}` : `-₹${Math.abs(r.amount)}`}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("month-filter-input").addEventListener("change", renderMonthly);
+
+    document.getElementById("btn-export-csv").addEventListener("click", () => {
+      const ym = document.getElementById("month-filter-input").value || todayStr.slice(0, 7);
+      const { rows } = getFilteredMonthRows();
+      const csvLines = ["Date,Day,Type,Detail,Amount"];
+      rows.forEach(r => {
+        csvLines.push(`"${r.date}","${r.day}","${r.type}","${String(r.detail).replace(/"/g, '""')}",${r.amount}`);
+      });
+      const blob = new Blob(["﻿" + csvLines.join("
+")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gokul-restaurant-${ym}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
